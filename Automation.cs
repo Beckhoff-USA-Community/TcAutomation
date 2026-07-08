@@ -394,9 +394,9 @@ namespace TcAutomation
                 targetCpuInfo.SelectSingleNode("AvailabeCPUs")?.InnerText
                 ?? throw new InvalidOperationException("AvailabeCPUs not found in TargetCPUInfo."));
 
-            int nonWindowsCpus = int.Parse(
-                targetCpuInfo.SelectSingleNode("NonWindowsCPUs")?.InnerText
-                ?? throw new InvalidOperationException("NonWindowsCPUs not found in TargetCPUInfo."));
+            // A missing NonWindowsCPUs node simply means no isolated cores are configured.
+            string? nonWindowsText = targetCpuInfo.SelectSingleNode("NonWindowsCPUs")?.InnerText;
+            int nonWindowsCpus = string.IsNullOrEmpty(nonWindowsText) ? 0 : int.Parse(nonWindowsText);
 
             return (totalCpus, nonWindowsCpus);
         }

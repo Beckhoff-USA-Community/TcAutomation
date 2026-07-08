@@ -277,6 +277,21 @@ namespace TcAutomation
         public void StartRestartTwinCAT() => SysManager.StartRestartTwinCAT();
 
         /// <summary>
+        /// Reboots the target system. A reboot is required for isolated CPU core
+        /// changes (<see cref="SetOnTarget"/>) to take effect.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// automation.RebootTarget();
+        /// </code>
+        /// </example>
+        public void RebootTarget()
+        {
+            // TODO: implement target reboot (e.g. WriteControl on port 10000 with shutdown/restart flags)
+            throw new NotImplementedException("Target reboot is not implemented yet.");
+        }
+
+        /// <summary>
         /// Blocks until the TwinCAT system service on the given target reaches Run state.
         /// </summary>
         public void WaitForRunMode(string netId)
@@ -515,6 +530,47 @@ namespace TcAutomation
             }
 
             realtimeSettings.ConsumeXml(stringWriter.ToString());
+        }
+
+        /// <summary>
+        /// Sets the number of isolated CPU cores directly on the target via the
+        /// <c>SetOnTarget</c> method of the real-time settings (TIRS). The target
+        /// applies the new core isolation immediately, without activating a configuration.
+        /// </summary>
+        /// <param name="isolatedCores">
+        ///   Number of cores isolated from Windows (<c>NonWindowsCPUs</c> attribute on <c>MaxCPUs</c>).
+        ///   0 for shared-only configurations.
+        /// </param>
+        /// <example>
+        /// <code>
+        /// automation.SetOnTarget(isolatedCores: 2);
+        /// </code>
+        /// </example>
+        public void SetOnTarget(int isolatedCores)
+        {
+            ITcSmTreeItem realtimeSettings = LookupTreeItem("TIRS");
+
+            var (totalCpus, _) = GetCpuCounts();
+
+            string nonWindowsAttr = isolatedCores > 0 ? $" NonWindowsCPUs=\"{isolatedCores}\"" : string.Empty;
+
+            string xml =
+                "<TreeItem>" +
+                "<RTimeSetDef>" +
+                $"<MaxCPUs{nonWindowsAttr}>{totalCpus}</MaxCPUs>" +
+                "<Methods>" +
+                "<SetOnTarget>true</SetOnTarget>" +
+                "</Methods>" +
+                "</RTimeSetDef>" +
+                "</TreeItem>";
+
+            realtimeSettings.ConsumeXml(xml);
+
+            // GetLastXmlError returns the item path / message of the last erroneous
+            // ConsumeXml call; ConsumeXml itself does not report SetOnTarget failures.
+            string xmlError = realtimeSettings.GetLastXmlError();
+            if (!string.IsNullOrEmpty(xmlError))
+                throw new InvalidOperationException($"SetOnTarget failed: {xmlError}");
         }
 
         #endregion
